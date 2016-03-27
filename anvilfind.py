@@ -2,6 +2,7 @@
 import nbt
 import sys
 import argparse
+import os
 
 
 class Rect:
@@ -13,10 +14,20 @@ class Rect:
         :return: Rectangle
         """
         keys = s.split(',')
+        if len(keys) is not 4:
+            print('Incorrect rectangle format. Hint: -r="xmin,xmax,zmin,zmax"')
+            sys.exit(1)
+
         self.xmin = int(keys[0])
         self.xmax = int(keys[1])
         self.zmin = int(keys[2])
         self.zmax = int(keys[3])
+
+        # Swap the coordinates if the user isn't able to read the help
+        if self.xmin > self.xmax:
+            self.xmin, self.xmax = self.xmax, self.xmin
+        if self.zmin > self.zmax:
+            self.zmin, self.zmax = self.zmax, self.zmin
 
     def inside(self, x, z):
         """
@@ -55,7 +66,7 @@ def main(path, id, rect=None):
     :param path: path to the world
     :param id: block ID
     :param rect: bounding rectangle
-    :return:
+    :return: 0
     """
     world = nbt.world.WorldFolder(path)
 
@@ -66,8 +77,8 @@ def main(path, id, rect=None):
 
     # Count columns
     for column in world.iter_nbt():
-        cx = column["Level"]["xPos"].value
-        cz = column["Level"]["zPos"].value
+        cx = column['Level']['xPos'].value
+        cz = column['Level']['zPos'].value
 
         if rect is not None and not rect.inside(cx, cz):
             continue
@@ -80,8 +91,8 @@ def main(path, id, rect=None):
 
     # Iterate over columns and look for the block
     for column in world.iter_nbt():
-        cx = column["Level"]["xPos"].value
-        cz = column["Level"]["zPos"].value
+        cx = column['Level']['xPos'].value
+        cz = column['Level']['zPos'].value
 
         if rect is not None and not rect.inside(cx, cz):
             continue
@@ -92,10 +103,10 @@ def main(path, id, rect=None):
         sys.stdout.flush()
 
         # Column is divided into 16 chunks
-        for chunk in column["Level"]["Sections"]:
-            cy = chunk["Y"].value
+        for chunk in column['Level']['Sections']:
+            cy = chunk['Y'].value
             i = 0
-            for block_id in chunk["Blocks"]:
+            for block_id in chunk['Blocks']:
                 x, y, z = get_block_pos(i, cx, cy, cz)
 
                 if block_id == id:
@@ -113,12 +124,17 @@ def main(path, id, rect=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
-    parser.add_argument("path", type=str, help="Path to the world")
-    parser.add_argument("ID", type=int, help="Block ID")
-    parser.add_argument("-r", "--rect", help="Look for blocks in specified rectangle only. " +
-                                             "Format: -r='xmin,xmax,zmin,zmax'")
+    parser.add_argument('path', type=str, help='Path to the world')
+    parser.add_argument('ID', type=int, help='Block ID')
+    parser.add_argument('-r', '--rect', help='Look for blocks in specified rectangle only. ' +
+                                             'Format: -r="xmin,xmax,zmin,zmax"')
 
     args = parser.parse_args()
+
+    region_path = os.path.join(args.path, 'region')
+    if not os.path.exists(region_path):
+        print('"{}" doesn\'t look like a world'.format(args.path))
+        sys.exit(1)
 
     if args.rect is None:
         rect = None
